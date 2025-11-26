@@ -17,11 +17,31 @@ serve(async (req) => {
       throw new Error('Query de busca é obrigatória');
     }
 
+    const YOUTUBE_API_KEY = Deno.env.get('YOUTUBE_API_KEY');
+    if (!YOUTUBE_API_KEY) {
+      throw new Error('YOUTUBE_API_KEY não configurada');
+    }
+
     console.log('Buscando no YouTube:', query);
 
-    // Simula busca do YouTube retornando ID gerado a partir do query
-    // Em produção, você usaria a YouTube Data API v3
-    const videoId = encodeURIComponent(query).substring(0, 11);
+    const searchUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=1&type=video&videoCategoryId=10&q=${encodeURIComponent(query)}&key=${YOUTUBE_API_KEY}`;
+    
+    const response = await fetch(searchUrl);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Erro ao buscar no YouTube:', response.status, errorText);
+      throw new Error(`Erro na API do YouTube: ${response.status}`);
+    }
+
+    const data = await response.json();
+    
+    if (!data.items || data.items.length === 0) {
+      throw new Error('Nenhum vídeo encontrado');
+    }
+
+    const videoId = data.items[0].id.videoId;
+    console.log('Vídeo encontrado:', videoId);
     
     return new Response(
       JSON.stringify({ videoId }),

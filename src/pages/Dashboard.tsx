@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Music, LogOut, Trash2 } from "lucide-react";
+import { Music, LogOut, Trash2, Play } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { MusicPlayer } from "@/components/MusicPlayer";
 
@@ -144,11 +144,7 @@ const Dashboard = () => {
             {playlists.map((playlist) => (
               <Card
                 key={playlist.id}
-                className="p-6 bg-card/50 backdrop-blur-sm border-border hover:border-primary/50 transition-all cursor-pointer group"
-                onClick={() => {
-                  setSelectedPlaylist(playlist);
-                  setCurrentTrackIndex(0);
-                }}
+                className="p-6 bg-card/50 backdrop-blur-sm border-border hover:border-primary/50 transition-all group"
               >
                 <div className="flex items-start justify-between mb-4">
                   <div className="w-12 h-12 rounded-lg bg-gradient-primary flex items-center justify-center">
@@ -167,7 +163,7 @@ const Dashboard = () => {
                   </Button>
                 </div>
 
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <span className="text-xs px-3 py-1 rounded-full bg-primary/20 text-primary font-medium inline-block">
                     {playlist.mood}
                   </span>
@@ -177,9 +173,48 @@ const Dashboard = () => {
                   <p className="text-sm text-muted-foreground line-clamp-2">
                     {playlist.description}
                   </p>
-                  <p className="text-xs text-muted-foreground">
-                    {playlist.tracks?.length || 0} músicas
-                  </p>
+                  
+                  {/* Lista de músicas */}
+                  <div className="border-t border-border pt-3 mt-3 space-y-2 max-h-48 overflow-y-auto">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase">
+                      {playlist.tracks?.length || 0} Músicas
+                    </p>
+                    {playlist.tracks?.slice(0, 5).map((track: any, idx: number) => (
+                      <button
+                        key={idx}
+                        onClick={() => {
+                          setSelectedPlaylist(playlist);
+                          setCurrentTrackIndex(idx);
+                        }}
+                        className="w-full text-left p-2 rounded hover:bg-accent/50 transition-colors group/track"
+                      >
+                        <p className="text-sm font-medium text-foreground truncate group-hover/track:text-primary">
+                          {track.title}
+                        </p>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {track.artist}
+                        </p>
+                      </button>
+                    ))}
+                    {playlist.tracks?.length > 5 && (
+                      <p className="text-xs text-muted-foreground text-center pt-2">
+                        +{playlist.tracks.length - 5} músicas
+                      </p>
+                    )}
+                  </div>
+
+                  <Button
+                    variant="outline"
+                    className="w-full mt-3"
+                    onClick={() => {
+                      setSelectedPlaylist(playlist);
+                      setCurrentTrackIndex(0);
+                    }}
+                  >
+                    <Play className="w-4 h-4 mr-2" />
+                    Tocar Playlist
+                  </Button>
+
                   <p className="text-xs text-muted-foreground">
                     {new Date(playlist.created_at).toLocaleDateString("pt-BR")}
                   </p>
