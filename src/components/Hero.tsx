@@ -37,6 +37,8 @@ export const Hero = () => {
     setLoading(true);
 
     try {
+      console.log("Gerando playlist com prompt:", prompt);
+      
       // Gera playlist com IA
       const { data: playlistData, error: aiError } = await supabase.functions.invoke(
         "generate-playlist",
@@ -45,7 +47,16 @@ export const Hero = () => {
         }
       );
 
-      if (aiError) throw aiError;
+      console.log("Resposta da função:", { playlistData, aiError });
+
+      if (aiError) {
+        console.error("Erro na função:", aiError);
+        throw aiError;
+      }
+
+      if (!playlistData || !playlistData.title) {
+        throw new Error("Resposta inválida da IA");
+      }
 
       // Salva no banco
       const { error: dbError } = await supabase.from("playlists").insert({
@@ -57,7 +68,10 @@ export const Hero = () => {
         tracks: playlistData.tracks,
       });
 
-      if (dbError) throw dbError;
+      if (dbError) {
+        console.error("Erro no banco:", dbError);
+        throw dbError;
+      }
 
       toast({
         title: "Playlist criada!",
