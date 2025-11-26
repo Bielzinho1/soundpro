@@ -37,23 +37,24 @@ serve(async (req) => {
         messages: [
           {
             role: 'system',
-            content: `Você é um especialista em música que cria playlists personalizadas. 
-            Baseado no prompt do usuário, você deve retornar um JSON com:
-            - title: título criativo para a playlist
-            - description: descrição curta da vibe
-            - mood: uma palavra que descreve o mood (ex: Energia, Chill, Treino, Nostalgia)
-            - tracks: array de 8-12 músicas, cada uma com:
-              - title: nome da música
-              - artist: nome do artista
-              - searchQuery: query otimizada para buscar no YouTube (formato: "artista - música official audio")
+            content: `You are a music expert that creates personalized playlists. 
+            Based on the user's prompt, return ONLY a valid JSON object (no markdown, no code blocks) with:
+            - title: creative playlist title
+            - description: short vibe description
+            - mood: one word describing the mood (ex: Energy, Chill, Workout, Nostalgia)
+            - tracks: array of 8-12 songs, each with:
+              - title: song name
+              - artist: artist name
+              - searchQuery: optimized query for YouTube search (format: "artist - song official audio")
             
-            Retorne APENAS o JSON, sem markdown ou texto adicional.`
+            Return ONLY the JSON object, nothing else.`
           },
           {
             role: 'user',
             content: prompt
           }
         ],
+        response_format: { type: "json_object" }
       }),
     });
 
@@ -81,24 +82,10 @@ serve(async (req) => {
     const data = await response.json();
     console.log('Resposta completa da IA:', JSON.stringify(data, null, 2));
     
-    let content = data.choices[0].message.content;
-    console.log('Conteúdo bruto:', content);
+    const content = data.choices[0].message.content;
+    console.log('Conteúdo recebido:', content);
     
-    // Remove markdown code blocks de forma mais robusta
-    content = content.trim();
-    
-    // Remove blocos ```json ou ``` do início e fim
-    content = content.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '');
-    
-    // Remove qualquer backtick solto que possa ter sobrado
-    content = content.replace(/^`+|`+$/g, '');
-    
-    // Trim final
-    content = content.trim();
-    
-    console.log('Conteúdo limpo:', content);
-    
-    // Parse o JSON da resposta
+    // Parse direto - com response_format json_object não vem com markdown
     const playlistData = JSON.parse(content);
     console.log('Playlist gerada com sucesso:', JSON.stringify(playlistData, null, 2));
 
