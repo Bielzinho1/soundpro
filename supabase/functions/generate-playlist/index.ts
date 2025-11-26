@@ -81,22 +81,26 @@ serve(async (req) => {
     const data = await response.json();
     console.log('Resposta completa da IA:', JSON.stringify(data, null, 2));
     
-    const content = data.choices[0].message.content;
+    let content = data.choices[0].message.content;
     console.log('Conteúdo bruto:', content);
     
-    // Remove markdown code blocks se existirem
-    let cleanedContent = content.trim();
-    if (cleanedContent.startsWith('```json')) {
-      cleanedContent = cleanedContent.replace(/^```json\s*/, '').replace(/\s*```$/, '');
-    } else if (cleanedContent.startsWith('```')) {
-      cleanedContent = cleanedContent.replace(/^```\s*/, '').replace(/\s*```$/, '');
-    }
+    // Remove markdown code blocks de forma mais robusta
+    content = content.trim();
     
-    console.log('Conteúdo limpo:', cleanedContent);
+    // Remove blocos ```json ou ``` do início e fim
+    content = content.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '');
+    
+    // Remove qualquer backtick solto que possa ter sobrado
+    content = content.replace(/^`+|`+$/g, '');
+    
+    // Trim final
+    content = content.trim();
+    
+    console.log('Conteúdo limpo:', content);
     
     // Parse o JSON da resposta
-    const playlistData = JSON.parse(cleanedContent);
-    console.log('Playlist gerada:', JSON.stringify(playlistData, null, 2));
+    const playlistData = JSON.parse(content);
+    console.log('Playlist gerada com sucesso:', JSON.stringify(playlistData, null, 2));
 
     return new Response(
       JSON.stringify(playlistData),
