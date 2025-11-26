@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Play, Pause, SkipForward, SkipBack, Volume2 } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
+import { useToast } from "@/hooks/use-toast";
 
 interface Track {
   title: string;
@@ -16,14 +17,129 @@ interface MusicPlayerProps {
   onTrackChange: (index: number) => void;
 }
 
+declare global {
+  interface Window {
+    YT: any;
+    onYouTubeIframeAPIReady: () => void;
+  }
+}
+
 export const MusicPlayer = ({ tracks, currentTrackIndex, onTrackChange }: MusicPlayerProps) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [volume, setVolume] = useState([70]);
+  const [player, setPlayer] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const playerRef = useRef<HTMLDivElement>(null);
+  const { toast } = useToast();
 
   const currentTrack = tracks[currentTrackIndex];
 
+  // Carrega YouTube IFrame API
+  useEffect(() => {
+    if (!window.YT) {
+      const tag = document.createElement('script');
+      tag.src = 'https://www.youtube.com/iframe_api';
+      const firstScriptTag = document.getElementsByTagName('script')[0];
+      firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
+    }
+  }, []);
+
+  // Busca vídeo e inicializa player quando muda a música
+  useEffect(() => {
+    if (!currentTrack || !window.YT) return;
+
+    const searchAndPlay = async () => {
+      setIsLoading(true);
+      try {
+        // Busca o vídeo no YouTube
+        const searchQuery = `${currentTrack.artist} ${currentTrack.title} official audio`;
+        const response = await fetch(
+          `https://www.youtube.com/results?search_query=${encodeURIComponent(searchQuery)}`
+        );
+        
+        const text = await response.text();
+        const videoIdMatch = text.match(/"videoId":"([^"]+)"/);
+        const videoId = videoIdMatch ? videoIdMatch[1] : null;
+
+        if (!videoId) {
+          toast({
+            variant: "destructive",
+            title: "Música não encontrada",
+            description: "Não foi possível encontrar esta música no YouTube",
+          });
+          setIsLoading(false);
+          return;
+        }
+
+        // Cria ou atualiza o player
+        if (player) {
+          player.loadVideoById(videoId);
+        } else if (window.YT && window.YT.Player) {
+          const newPlayer = new window.YT.Player(playerRef.current, {
+            height: '0',
+            width: '0',
+            videoId: videoId,
+            playerVars: {
+              autoplay: 1,
+              controls: 0,
+            },
+            events: {
+              onReady: (event: any) => {
+                event.target.setVolume(volume[0]);
+                setPlayer(event.target);
+                setIsPlaying(true);
+                setIsLoading(false);
+              },
+              onStateChange: (event: any) => {
+                if (event.data === window.YT.PlayerState.ENDED) {
+                  handleNext();
+                }
+                if (event.data === window.YT.PlayerState.PLAYING) {
+                  setIsPlaying(true);
+                } else if (event.data === window.YT.PlayerState.PAUSED) {
+                  setIsPlaying(false);
+                }
+              },
+              onError: () => {
+                toast({
+                  variant: "destructive",
+                  title: "Erro ao reproduzir",
+                  description: "Erro ao carregar o vídeo",
+                });
+                setIsLoading(false);
+              }
+            },
+          });
+        }
+      } catch (error) {
+        console.error('Erro ao buscar música:', error);
+        toast({
+          variant: "destructive",
+          title: "Erro",
+          description: "Erro ao buscar música no YouTube",
+        });
+        setIsLoading(false);
+      }
+    };
+
+    searchAndPlay();
+  }, [currentTrack]);
+
+  // Atualiza volume
+  useEffect(() => {
+    if (player) {
+      player.setVolume(volume[0]);
+    }
+  }, [volume, player]);
+
   const handlePlayPause = () => {
-    setIsPlaying(!isPlaying);
+    if (!player) return;
+    
+    if (isPlaying) {
+      player.pauseVideo();
+    } else {
+      player.playVideo();
+    }
   };
 
   const handleNext = () => {
@@ -42,6 +158,7 @@ export const MusicPlayer = ({ tracks, currentTrackIndex, onTrackChange }: MusicP
 
   return (
     <Card className="fixed bottom-0 left-0 right-0 p-4 bg-card/95 backdrop-blur-sm border-t-2 border-primary/30 shadow-glow z-50">
+      <div ref={playerRef} style={{ display: 'none' }}></div>
       <div className="container mx-auto">
         <div className="flex items-center gap-6">
           {/* Track Info */}
@@ -66,8 +183,11 @@ export const MusicPlayer = ({ tracks, currentTrackIndex, onTrackChange }: MusicP
               variant="hero"
               className="w-12 h-12"
               onClick={handlePlayPause}
+              disabled={isLoading || !player}
             >
-              {isPlaying ? (
+              {isLoading ? (
+                <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+              ) : isPlaying ? (
                 <Pause className="w-6 h-6" />
               ) : (
                 <Play className="w-6 h-6 ml-0.5" />

@@ -19,6 +19,7 @@ serve(async (req) => {
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
+      console.error('LOVABLE_API_KEY não configurada');
       throw new Error('LOVABLE_API_KEY não configurada');
     }
 
@@ -78,12 +79,24 @@ serve(async (req) => {
     }
 
     const data = await response.json();
-    const content = data.choices[0].message.content;
+    console.log('Resposta completa da IA:', JSON.stringify(data, null, 2));
     
-    console.log('Resposta da IA:', content);
+    const content = data.choices[0].message.content;
+    console.log('Conteúdo bruto:', content);
+    
+    // Remove markdown code blocks se existirem
+    let cleanedContent = content.trim();
+    if (cleanedContent.startsWith('```json')) {
+      cleanedContent = cleanedContent.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+    } else if (cleanedContent.startsWith('```')) {
+      cleanedContent = cleanedContent.replace(/^```\s*/, '').replace(/\s*```$/, '');
+    }
+    
+    console.log('Conteúdo limpo:', cleanedContent);
     
     // Parse o JSON da resposta
-    const playlistData = JSON.parse(content);
+    const playlistData = JSON.parse(cleanedContent);
+    console.log('Playlist gerada:', JSON.stringify(playlistData, null, 2));
 
     return new Response(
       JSON.stringify(playlistData),
