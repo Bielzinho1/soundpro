@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Play, Pause, SkipForward, SkipBack, Volume2 } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Track {
   title: string;
@@ -51,29 +52,32 @@ export const MusicPlayer = ({ tracks, currentTrackIndex, onTrackChange }: MusicP
     const searchAndPlay = async () => {
       setIsLoading(true);
       try {
-        // Busca o vídeo no YouTube
-        const searchQuery = `${currentTrack.artist} ${currentTrack.title} official audio`;
-        const response = await fetch(
-          `https://www.youtube.com/results?search_query=${encodeURIComponent(searchQuery)}`
-        );
+        console.log('Buscando música:', currentTrack);
         
-        const text = await response.text();
-        const videoIdMatch = text.match(/"videoId":"([^"]+)"/);
-        const videoId = videoIdMatch ? videoIdMatch[1] : null;
+        // Busca o vídeo no YouTube via backend
+        const { data: searchData, error: searchError } = await supabase.functions.invoke(
+          'search-youtube',
+          {
+            body: { query: `${currentTrack.artist} ${currentTrack.title} official audio` }
+          }
+        );
 
-        if (!videoId) {
-          toast({
-            variant: "destructive",
-            title: "Música não encontrada",
-            description: "Não foi possível encontrar esta música no YouTube",
-          });
-          setIsLoading(false);
-          return;
+        if (searchError) {
+          console.error('Erro ao buscar:', searchError);
+          throw searchError;
         }
+
+        if (!searchData || !searchData.videoId) {
+          throw new Error('Vídeo não encontrado');
+        }
+
+        const videoId = searchData.videoId;
+        console.log('Video ID encontrado:', videoId);
 
         // Cria ou atualiza o player
         if (player) {
           player.loadVideoById(videoId);
+          setIsLoading(false);
         } else if (window.YT && window.YT.Player) {
           const newPlayer = new window.YT.Player(playerRef.current, {
             height: '0',
@@ -89,6 +93,7 @@ export const MusicPlayer = ({ tracks, currentTrackIndex, onTrackChange }: MusicP
                 setPlayer(event.target);
                 setIsPlaying(true);
                 setIsLoading(false);
+                console.log('Player pronto e tocando');
               },
               onStateChange: (event: any) => {
                 if (event.data === window.YT.PlayerState.ENDED) {
@@ -100,13 +105,16 @@ export const MusicPlayer = ({ tracks, currentTrackIndex, onTrackChange }: MusicP
                   setIsPlaying(false);
                 }
               },
-              onError: () => {
+              onError: (event: any) => {
+                console.error('Erro no player:', event.data);
                 toast({
                   variant: "destructive",
                   title: "Erro ao reproduzir",
-                  description: "Erro ao carregar o vídeo",
+                  description: "Erro ao carregar o vídeo. Tentando próxima música...",
                 });
                 setIsLoading(false);
+                // Tenta próxima música
+                setTimeout(() => handleNext(), 2000);
               }
             },
           });
@@ -116,9 +124,10 @@ export const MusicPlayer = ({ tracks, currentTrackIndex, onTrackChange }: MusicP
         toast({
           variant: "destructive",
           title: "Erro",
-          description: "Erro ao buscar música no YouTube",
+          description: "Erro ao buscar música. Tentando próxima...",
         });
         setIsLoading(false);
+        setTimeout(() => handleNext(), 2000);
       }
     };
 
