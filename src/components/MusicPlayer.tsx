@@ -36,23 +36,34 @@ export const MusicPlayer = ({ tracks, currentTrackIndex, onTrackChange }: MusicP
   const currentTrack = tracks[currentTrackIndex];
 
   // Carrega YouTube IFrame API
-  useEffect(() => {
-    if (!window.YT) {
-      const tag = document.createElement('script');
-      tag.src = 'https://www.youtube.com/iframe_api';
-      const firstScriptTag = document.getElementsByTagName('script')[0];
-      firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
-    }
-  }, []);
+  const loadYouTubeAPI = () => {
+    return new Promise<void>((resolve) => {
+      if (window.YT && window.YT.Player) {
+        resolve();
+        return;
+      }
+
+      const script = document.createElement("script");
+      script.src = "https://www.youtube.com/iframe_api";
+      document.body.appendChild(script);
+
+      window.onYouTubeIframeAPIReady = () => {
+        resolve();
+      };
+    });
+  };
 
   // Busca vídeo e inicializa player quando muda a música
   useEffect(() => {
-    if (!currentTrack || !window.YT) return;
+    if (!currentTrack) return;
 
     const searchAndPlay = async () => {
       setIsLoading(true);
       try {
         console.log('Buscando música:', currentTrack);
+        
+        // Carrega API do YouTube primeiro
+        await loadYouTubeAPI();
         
         // Busca o vídeo no YouTube via backend
         const { data: searchData, error: searchError } = await supabase.functions.invoke(
@@ -77,8 +88,11 @@ export const MusicPlayer = ({ tracks, currentTrackIndex, onTrackChange }: MusicP
         // Cria ou atualiza o player
         if (player) {
           player.loadVideoById(videoId);
+          player.unMute();
+          player.setVolume(volume[0]);
+          player.playVideo();
           setIsLoading(false);
-        } else if (window.YT && window.YT.Player) {
+        } else {
           const newPlayer = new window.YT.Player(playerRef.current, {
             height: '0',
             width: '0',
@@ -89,7 +103,9 @@ export const MusicPlayer = ({ tracks, currentTrackIndex, onTrackChange }: MusicP
             },
             events: {
               onReady: (event: any) => {
+                event.target.unMute();
                 event.target.setVolume(volume[0]);
+                event.target.playVideo();
                 setPlayer(event.target);
                 setIsPlaying(true);
                 setIsLoading(false);
@@ -110,10 +126,9 @@ export const MusicPlayer = ({ tracks, currentTrackIndex, onTrackChange }: MusicP
                 toast({
                   variant: "destructive",
                   title: "Erro ao reproduzir",
-                  description: "Erro ao carregar o vídeo. Tentando próxima música...",
+                  description: "Tentando próxima música...",
                 });
                 setIsLoading(false);
-                // Tenta próxima música
                 setTimeout(() => handleNext(), 2000);
               }
             },
