@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Sparkles, Music, LogOut } from "lucide-react";
+import { Sparkles, Music, LogOut, Search } from "lucide-react";
 import heroImage from "@/assets/hero-music.jpg";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -111,6 +111,10 @@ export const Hero = () => {
         {/* Header with user actions */}
         {user && (
           <div className="absolute top-4 right-4 z-20 flex gap-2">
+            <Button onClick={() => navigate("/search")} variant="outline">
+              <Search className="w-4 h-4 mr-2" />
+              Buscar Músicas
+            </Button>
             <Button onClick={() => navigate("/dashboard")} variant="outline">
               <Music className="w-4 h-4 mr-2" />
               Minhas Playlists
@@ -165,13 +169,15 @@ export const Hero = () => {
                 : "Faça login para salvar suas playlists"}
             </p>
             {!user && (
-              <Button
-                onClick={() => navigate("/auth")}
-                variant="outline"
-                className="mt-4"
-              >
-                Fazer Login / Criar Conta
-              </Button>
+              <div className="flex gap-3 justify-center mt-4">
+                <Button onClick={() => navigate("/auth")} variant="outline">
+                  Fazer Login / Criar Conta
+                </Button>
+                <Button onClick={() => navigate("/search")} variant="hero">
+                  <Search className="w-4 h-4 mr-2" />
+                  Buscar Músicas
+                </Button>
+              </div>
             )}
           </div>
 

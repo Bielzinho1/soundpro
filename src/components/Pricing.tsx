@@ -1,6 +1,8 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Check, Zap } from "lucide-react";
+import { Check, Zap, Crown } from "lucide-react";
+
+const WHATSAPP_LINK = "https://wa.me/5541992945393?text=Olá! Quero assinar o SoundPro Premium!";
 
 const plans = [
   {
@@ -88,7 +90,17 @@ export const Pricing = () => {
                   ))}
                 </ul>
 
-                <Button variant={plan.variant} size="lg" className="w-full">
+                <Button
+                  variant={plan.variant}
+                  size="lg"
+                  className="w-full"
+                  onClick={() => {
+                    if (plan.popular) {
+                      window.open(WHATSAPP_LINK, "_blank");
+                    }
+                  }}
+                >
+                  {plan.popular && <Crown className="w-4 h-4 mr-2" />}
                   {plan.cta}
                 </Button>
               </div>
