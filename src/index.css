@@ -2,51 +2,49 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
 @layer base {
   :root {
-    --background: 20 14% 4%;
+    --background: 0 0% 7%;
     --foreground: 0 0% 98%;
 
-    --card: 20 14% 8%;
+    --card: 0 0% 11%;
     --card-foreground: 0 0% 98%;
 
-    --popover: 20 14% 8%;
+    --popover: 0 0% 11%;
     --popover-foreground: 0 0% 98%;
 
-    --primary: 24 95% 53%;
+    --primary: 141 73% 42%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 12 88% 59%;
-    --secondary-foreground: 0 0% 100%;
+    --secondary: 0 0% 16%;
+    --secondary-foreground: 0 0% 98%;
 
-    --muted: 20 14% 15%;
-    --muted-foreground: 0 0% 65%;
+    --muted: 0 0% 14%;
+    --muted-foreground: 0 0% 55%;
 
-    --accent: 45 93% 58%;
-    --accent-foreground: 20 14% 4%;
+    --accent: 141 73% 42%;
+    --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 84.2% 60.2%;
+    --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 20 14% 15%;
-    --input: 20 14% 15%;
-    --ring: 24 95% 53%;
+    --border: 0 0% 16%;
+    --input: 0 0% 16%;
+    --ring: 141 73% 42%;
 
-    --radius: 1rem;
+    --radius: 0.75rem;
 
-    --gradient-primary: linear-gradient(135deg, hsl(24 95% 53%), hsl(12 88% 59%));
-    --gradient-secondary: linear-gradient(135deg, hsl(12 88% 59%), hsl(0 85% 63%));
-    --gradient-accent: linear-gradient(135deg, hsl(24 95% 53%), hsl(45 93% 58%));
-    --gradient-glow: linear-gradient(135deg, hsl(24 95% 53% / 0.2), hsl(12 88% 59% / 0.2));
+    --gradient-primary: linear-gradient(135deg, hsl(141 73% 42%), hsl(141 73% 32%));
+    --gradient-secondary: linear-gradient(180deg, hsl(0 0% 18%), hsl(0 0% 7%));
+    --gradient-accent: linear-gradient(135deg, hsl(141 73% 42%), hsl(160 73% 42%));
+    --gradient-glow: linear-gradient(135deg, hsl(141 73% 42% / 0.15), hsl(141 73% 42% / 0.05));
     
-    --shadow-glow: 0 0 60px hsl(24 95% 53% / 0.3);
-    --shadow-card: 0 20px 60px hsl(0 0% 0% / 0.5);
+    --shadow-glow: 0 8px 32px hsl(141 73% 42% / 0.25);
+    --shadow-card: 0 8px 24px hsl(0 0% 0% / 0.4);
     
-    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-smooth: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   }
 }
 
@@ -57,5 +55,20 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Hide scrollbar for clean look */
+  ::-webkit-scrollbar {
+    width: 4px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(0 0% 25%);
+    border-radius: 4px;
   }
 }
