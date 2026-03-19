@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Sparkles, Music, LogOut } from "lucide-react";
+import { Sparkles, Music, LogOut, Search } from "lucide-react";
 import heroImage from "@/assets/hero-music.jpg";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
