@@ -169,13 +169,15 @@ export const Hero = () => {
                 : "Faça login para salvar suas playlists"}
             </p>
             {!user && (
-              <Button
-                onClick={() => navigate("/auth")}
-                variant="outline"
-                className="mt-4"
-              >
-                Fazer Login / Criar Conta
-              </Button>
+              <div className="flex gap-3 justify-center mt-4">
+                <Button onClick={() => navigate("/auth")} variant="outline">
+                  Fazer Login / Criar Conta
+                </Button>
+                <Button onClick={() => navigate("/search")} variant="hero">
+                  <Search className="w-4 h-4 mr-2" />
+                  Buscar Músicas
+                </Button>
+              </div>
             )}
           </div>
 
