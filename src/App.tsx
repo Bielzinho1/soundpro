@@ -26,7 +26,6 @@ const App = () => (
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/search" element={<Search />} />
             <Route path="/install" element={<Install />} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>

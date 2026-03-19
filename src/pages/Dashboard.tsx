@@ -3,10 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Music, LogOut, Trash2, Play } from "lucide-react";
+import { Music, Trash2, Play, Pause, SkipForward, SkipBack, Loader2, Mic2, ChevronDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { MusicPlayer } from "@/components/MusicPlayer";
+import { BottomNav } from "@/components/BottomNav";
 
 interface Playlist {
   id: string;
@@ -17,25 +16,35 @@ interface Playlist {
   created_at: string;
 }
 
+declare global {
+  interface Window {
+    YT: any;
+    onYouTubeIframeAPIReady: () => void;
+  }
+}
+
 const Dashboard = () => {
   const { user, signOut, loading: authLoading } = useAuth();
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedPlaylist, setSelectedPlaylist] = useState<Playlist | null>(null);
   const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [loadingPlayer, setLoadingPlayer] = useState(false);
+  const [player, setPlayer] = useState<any>(null);
+  const [lyrics, setLyrics] = useState<string | null>(null);
+  const [loadingLyrics, setLoadingLyrics] = useState(false);
+  const [showLyrics, setShowLyrics] = useState(false);
+  const playerDivRef = useState<HTMLDivElement | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
   useEffect(() => {
-    if (!authLoading && !user) {
-      navigate("/auth");
-    }
+    if (!authLoading && !user) navigate("/auth");
   }, [user, authLoading, navigate]);
 
   useEffect(() => {
-    if (user) {
-      loadPlaylists();
-    }
+    if (user) loadPlaylists();
   }, [user]);
 
   const loadPlaylists = async () => {
@@ -44,195 +53,119 @@ const Dashboard = () => {
         .from("playlists")
         .select("*")
         .order("created_at", { ascending: false });
-
       if (error) throw error;
       setPlaylists((data || []) as Playlist[]);
-    } catch (error) {
-      console.error("Erro ao carregar playlists:", error);
-      toast({
-        variant: "destructive",
-        title: "Erro",
-        description: "Não foi possível carregar suas playlists",
-      });
+    } catch {
+      toast({ variant: "destructive", title: "Erro ao carregar playlists" });
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDeletePlaylist = async (id: string) => {
+  const handleDelete = async (id: string) => {
     try {
       const { error } = await supabase.from("playlists").delete().eq("id", id);
-
       if (error) throw error;
-
       setPlaylists(playlists.filter((p) => p.id !== id));
-      if (selectedPlaylist?.id === id) {
-        setSelectedPlaylist(null);
-      }
-
-      toast({
-        title: "Playlist excluída",
-        description: "Sua playlist foi removida com sucesso",
-      });
-    } catch (error) {
-      console.error("Erro ao excluir playlist:", error);
-      toast({
-        variant: "destructive",
-        title: "Erro",
-        description: "Não foi possível excluir a playlist",
-      });
+      if (selectedPlaylist?.id === id) setSelectedPlaylist(null);
+      toast({ title: "Playlist excluída" });
+    } catch {
+      toast({ variant: "destructive", title: "Erro ao excluir" });
     }
   };
 
   if (authLoading || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center space-y-4">
-          <div className="w-16 h-16 rounded-full bg-gradient-primary animate-pulse mx-auto"></div>
-          <p className="text-muted-foreground">Carregando...</p>
-        </div>
+        <Loader2 className="w-8 h-8 text-primary animate-spin" />
       </div>
     );
   }
 
-  return (
-    <div className="min-h-screen bg-background pb-32">
-      {/* Header */}
-      <header className="border-b border-border bg-card/30 backdrop-blur-sm sticky top-0 z-40">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-gradient-primary flex items-center justify-center">
-              <Music className="w-6 h-6 text-primary-foreground" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-                Minhas Playlists
-              </h1>
-              <p className="text-sm text-muted-foreground">
-                {user?.email}
-              </p>
-            </div>
-          </div>
+  const currentTrack = selectedPlaylist?.tracks?.[currentTrackIndex];
 
-          <div className="flex gap-2">
-            <Button onClick={() => navigate("/")} variant="outline">
-              Criar Nova
-            </Button>
-            <Button onClick={signOut} variant="ghost">
-              <LogOut className="w-4 h-4 mr-2" />
+  return (
+    <div className="min-h-screen bg-background pb-20">
+      {/* Header */}
+      <div className="sticky top-0 z-40 bg-background/90 backdrop-blur-md px-4 pt-4 pb-3">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-extrabold text-foreground">Biblioteca</h1>
+          <div className="flex items-center gap-2">
+            <Button onClick={signOut} variant="ghost" size="sm" className="text-muted-foreground text-xs">
               Sair
             </Button>
           </div>
         </div>
-      </header>
+        <p className="text-xs text-muted-foreground mt-1">{user?.email}</p>
+      </div>
 
-      {/* Content */}
-      <div className="container mx-auto px-4 py-8">
+      <div className="px-4 space-y-4 mt-2">
         {playlists.length === 0 ? (
-          <Card className="p-12 text-center bg-card/50 backdrop-blur-sm">
-            <Music className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
-            <h2 className="text-2xl font-bold mb-2">Nenhuma playlist ainda</h2>
-            <p className="text-muted-foreground mb-6">
-              Crie sua primeira playlist usando IA!
-            </p>
-            <Button onClick={() => navigate("/")} variant="hero">
+          <div className="text-center py-20 space-y-4">
+            <Music className="w-12 h-12 mx-auto text-muted-foreground/30" />
+            <p className="text-muted-foreground">Nenhuma playlist ainda</p>
+            <Button onClick={() => navigate("/")} className="bg-primary text-primary-foreground rounded-full px-6">
               Criar Playlist
             </Button>
-          </Card>
+          </div>
         ) : (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {playlists.map((playlist) => (
-              <Card
-                key={playlist.id}
-                className="p-6 bg-card/50 backdrop-blur-sm border-border hover:border-primary/50 transition-all group"
-              >
-                <div className="flex items-start justify-between mb-4">
-                  <div className="w-12 h-12 rounded-lg bg-gradient-primary flex items-center justify-center">
-                    <Music className="w-6 h-6 text-primary-foreground" />
-                  </div>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDeletePlaylist(playlist.id);
-                    }}
-                    className="opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
-
-                <div className="space-y-3">
-                  <span className="text-xs px-3 py-1 rounded-full bg-primary/20 text-primary font-medium inline-block">
+          playlists.map((playlist) => (
+            <div key={playlist.id} className="bg-card rounded-xl p-4 space-y-3">
+              <div className="flex items-start justify-between">
+                <div className="flex-1 min-w-0">
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/20 text-primary font-medium uppercase">
                     {playlist.mood}
                   </span>
-                  <h3 className="text-lg font-bold text-foreground">
-                    {playlist.title}
-                  </h3>
-                  <p className="text-sm text-muted-foreground line-clamp-2">
-                    {playlist.description}
-                  </p>
-                  
-                  {/* Lista de músicas */}
-                  <div className="border-t border-border pt-3 mt-3 space-y-2 max-h-48 overflow-y-auto">
-                    <p className="text-xs font-semibold text-muted-foreground uppercase">
-                      {playlist.tracks?.length || 0} Músicas
-                    </p>
-                    {playlist.tracks?.slice(0, 5).map((track: any, idx: number) => (
-                      <button
-                        key={idx}
-                        onClick={() => {
-                          setSelectedPlaylist(playlist);
-                          setCurrentTrackIndex(idx);
-                        }}
-                        className="w-full text-left p-2 rounded hover:bg-accent/50 transition-colors group/track"
-                      >
-                        <p className="text-sm font-medium text-foreground truncate group-hover/track:text-primary">
-                          {track.title}
-                        </p>
-                        <p className="text-xs text-muted-foreground truncate">
-                          {track.artist}
-                        </p>
-                      </button>
-                    ))}
-                    {playlist.tracks?.length > 5 && (
-                      <p className="text-xs text-muted-foreground text-center pt-2">
-                        +{playlist.tracks.length - 5} músicas
-                      </p>
-                    )}
-                  </div>
+                  <h3 className="font-bold text-foreground mt-1 truncate">{playlist.title}</h3>
+                  <p className="text-xs text-muted-foreground line-clamp-1">{playlist.description}</p>
+                </div>
+                <button
+                  onClick={() => handleDelete(playlist.id)}
+                  className="p-2 text-muted-foreground hover:text-destructive transition-colors"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
 
-                  <Button
-                    variant="outline"
-                    className="w-full mt-3"
+              {/* Tracks */}
+              <div className="space-y-1">
+                {playlist.tracks?.map((track: any, idx: number) => (
+                  <button
+                    key={idx}
                     onClick={() => {
                       setSelectedPlaylist(playlist);
-                      setCurrentTrackIndex(0);
+                      setCurrentTrackIndex(idx);
                     }}
+                    className={`w-full flex items-center gap-3 p-2 rounded-md text-left transition-colors ${
+                      selectedPlaylist?.id === playlist.id && currentTrackIndex === idx
+                        ? "bg-primary/10"
+                        : "hover:bg-muted/50"
+                    }`}
                   >
-                    <Play className="w-4 h-4 mr-2" />
-                    Tocar Playlist
-                  </Button>
+                    <span className="text-xs text-muted-foreground w-5 text-right">{idx + 1}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm truncate ${
+                        selectedPlaylist?.id === playlist.id && currentTrackIndex === idx
+                          ? "text-primary font-medium"
+                          : "text-foreground"
+                      }`}>
+                        {track.title}
+                      </p>
+                      <p className="text-xs text-muted-foreground truncate">{track.artist}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
 
-                  <p className="text-xs text-muted-foreground">
-                    {new Date(playlist.created_at).toLocaleDateString("pt-BR")}
-                  </p>
-                </div>
-              </Card>
-            ))}
-          </div>
+              <p className="text-[10px] text-muted-foreground">
+                {new Date(playlist.created_at).toLocaleDateString("pt-BR")} • {playlist.tracks?.length || 0} músicas
+              </p>
+            </div>
+          ))
         )}
       </div>
 
-      {/* Music Player */}
-      {selectedPlaylist && (
-        <MusicPlayer
-          tracks={selectedPlaylist.tracks}
-          currentTrackIndex={currentTrackIndex}
-          onTrackChange={setCurrentTrackIndex}
-        />
-      )}
+      <BottomNav />
     </div>
   );
 };
