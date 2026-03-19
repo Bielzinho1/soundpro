@@ -1,6 +1,8 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Check, Zap } from "lucide-react";
+import { Check, Zap, Crown } from "lucide-react";
+
+const WHATSAPP_LINK = "https://wa.me/5541992945393?text=Olá! Quero assinar o SoundPro Premium!";
 
 const plans = [
   {
