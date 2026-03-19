@@ -90,7 +90,17 @@ export const Pricing = () => {
                   ))}
                 </ul>
 
-                <Button variant={plan.variant} size="lg" className="w-full">
+                <Button
+                  variant={plan.variant}
+                  size="lg"
+                  className="w-full"
+                  onClick={() => {
+                    if (plan.popular) {
+                      window.open(WHATSAPP_LINK, "_blank");
+                    }
+                  }}
+                >
+                  {plan.popular && <Crown className="w-4 h-4 mr-2" />}
                   {plan.cta}
                 </Button>
               </div>

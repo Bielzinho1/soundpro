@@ -111,6 +111,10 @@ export const Hero = () => {
         {/* Header with user actions */}
         {user && (
           <div className="absolute top-4 right-4 z-20 flex gap-2">
+            <Button onClick={() => navigate("/search")} variant="outline">
+              <Search className="w-4 h-4 mr-2" />
+              Buscar Músicas
+            </Button>
             <Button onClick={() => navigate("/dashboard")} variant="outline">
               <Music className="w-4 h-4 mr-2" />
               Minhas Playlists
