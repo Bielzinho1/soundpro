@@ -325,33 +325,35 @@ const Search = () => {
       {currentTrack && (
         <div className="fixed bottom-[52px] left-0 right-0 z-50">
           <div className="mx-2 bg-card rounded-lg shadow-card overflow-hidden">
-            <button
-              onClick={() => setShowLyrics(true)}
-              className="w-full flex items-center gap-3 p-2"
-            >
-              <img
-                src={currentTrack.thumbnail}
-                alt=""
-                className="w-11 h-11 rounded object-cover"
-              />
-              <div className="flex-1 min-w-0 text-left">
-                <p className="text-sm font-semibold text-foreground truncate">
-                  {currentTrack.title}
-                </p>
-                <p className="text-xs text-muted-foreground truncate">
-                  {currentTrack.artist}
-                </p>
-              </div>
-              <div className="flex items-center gap-1 pr-1">
+            <div className="flex items-center gap-2 p-2">
+              <button onClick={() => setShowLyrics(true)} className="flex items-center gap-3 flex-1 min-w-0">
+                <img
+                  src={currentTrack.thumbnail}
+                  alt=""
+                  className="w-12 h-12 rounded object-cover flex-shrink-0"
+                />
+                <div className="flex-1 min-w-0 text-left">
+                  <p className="text-sm font-semibold text-foreground truncate">
+                    {currentTrack.title}
+                  </p>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {currentTrack.artist}
+                  </p>
+                </div>
+              </button>
+              <div className="flex items-center gap-0.5 flex-shrink-0">
                 <button
                   onClick={(e) => { e.stopPropagation(); setShowLyrics(true); }}
-                  className="p-2"
+                  className="p-1.5"
                 >
                   <Mic2 className="w-5 h-5 text-primary" />
                 </button>
+                <button onClick={playPrev} className="p-1.5">
+                  <SkipBack className="w-5 h-5 text-foreground" />
+                </button>
                 <button
-                  onClick={(e) => { e.stopPropagation(); handlePlayPause(); }}
-                  className="p-2"
+                  onClick={handlePlayPause}
+                  className="p-1.5"
                 >
                   {loadingPlayer ? (
                     <Loader2 className="w-5 h-5 text-foreground animate-spin" />
@@ -361,8 +363,11 @@ const Search = () => {
                     <Play className="w-5 h-5 text-foreground ml-0.5" />
                   )}
                 </button>
+                <button onClick={playNext} className="p-1.5">
+                  <SkipForward className="w-5 h-5 text-foreground" />
+                </button>
               </div>
-            </button>
+            </div>
           </div>
         </div>
       )}
