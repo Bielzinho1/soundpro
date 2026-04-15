@@ -1,236 +1,82 @@
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { usePlayer } from "@/contexts/PlayerContext";
+import type { PlayableTrack } from "@/types/player";
+import { BottomNav } from "@/components/BottomNav";
+import { useToast } from "@/hooks/use-toast";
 import {
   Search as SearchIcon,
-  Play,
-  Pause,
-  SkipForward,
-  SkipBack,
-  Volume2,
-  Mic2,
   Loader2,
   ArrowLeft,
   X,
-  ChevronUp,
-  ChevronDown,
 } from "lucide-react";
-import { Slider } from "@/components/ui/slider";
-import { useToast } from "@/hooks/use-toast";
-import { BottomNav } from "@/components/BottomNav";
 
-declare global {
-  interface Window {
-    YT: any;
-    onYouTubeIframeAPIReady: () => void;
-  }
-}
-
-interface SearchResult {
-  title: string;
-  artist: string;
-  videoId: string;
-  thumbnail: string;
-}
+const isSameTrack = (current: PlayableTrack | null, candidate: PlayableTrack) => {
+  if (!current) return false;
+  if (current.videoId && candidate.videoId) return current.videoId === candidate.videoId;
+  return current.title === candidate.title && current.artist === candidate.artist;
+};
 
 const Search = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { toast } = useToast();
+  const { currentTrack, isPlaying, loadingPlayer, playTrack } = usePlayer();
 
   const [query, setQuery] = useState(searchParams.get("q") || "");
-  const [results, setResults] = useState<SearchResult[]>([]);
+  const [results, setResults] = useState<PlayableTrack[]>([]);
   const [searching, setSearching] = useState(false);
-  const [currentTrack, setCurrentTrack] = useState<SearchResult | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [volume, setVolume] = useState([70]);
-  const [player, setPlayer] = useState<any>(null);
-  const [lyrics, setLyrics] = useState<string | null>(null);
-  const [loadingLyrics, setLoadingLyrics] = useState(false);
-  const [loadingPlayer, setLoadingPlayer] = useState(false);
-  const [showLyrics, setShowLyrics] = useState(false);
-  const playerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    const q = searchParams.get("q");
+    const q = searchParams.get("q")?.trim();
     if (q) {
       setQuery(q);
-      doSearch(q);
+      void doSearch(q);
     } else {
       inputRef.current?.focus();
     }
   }, [searchParams]);
 
-  const loadYouTubeAPI = () => {
-    return new Promise<void>((resolve) => {
-      if (window.YT && window.YT.Player) { resolve(); return; }
-      if (document.querySelector('script[src="https://www.youtube.com/iframe_api"]')) {
-        const check = setInterval(() => {
-          if (window.YT && window.YT.Player) { clearInterval(check); resolve(); }
-        }, 100);
-        return;
-      }
-      const script = document.createElement("script");
-      script.src = "https://www.youtube.com/iframe_api";
-      document.body.appendChild(script);
-      window.onYouTubeIframeAPIReady = () => resolve();
-    });
-  };
-
   const doSearch = async (q: string) => {
-    if (!q.trim()) return;
+    const trimmedQuery = q.trim();
+
+    if (!trimmedQuery) {
+      setResults([]);
+      return;
+    }
+
     setSearching(true);
     setResults([]);
+
     try {
       const { data, error } = await supabase.functions.invoke("search-youtube-multiple", {
-        body: { query: q, maxResults: 15 },
+        body: { query: trimmedQuery, maxResults: 15 },
       });
+
       if (error) throw error;
-      if (data?.results) setResults(data.results);
+
+      setResults(Array.isArray(data?.results) ? data.results : []);
     } catch {
-      toast({ variant: "destructive", title: "Erro na busca" });
+      toast({
+        variant: "destructive",
+        title: "Erro na busca",
+        description: "Não foi possível buscar agora.",
+      });
     } finally {
       setSearching(false);
     }
   };
 
-  const handleSearch = () => doSearch(query);
-
-  const playTrack = async (track: SearchResult) => {
-    setCurrentTrack(track);
-    setLoadingPlayer(true);
-    setLyrics(null);
-    setShowLyrics(false);
-
-    try {
-      await loadYouTubeAPI();
-
-      if (player) {
-        player.loadVideoById(track.videoId);
-        player.unMute();
-        player.setVolume(volume[0]);
-        player.playVideo();
-        setLoadingPlayer(false);
-        setIsPlaying(true);
-      } else {
-        const newPlayer = new window.YT.Player(playerRef.current, {
-          height: "0",
-          width: "0",
-          videoId: track.videoId,
-          playerVars: { autoplay: 1, controls: 0 },
-          events: {
-            onReady: (event: any) => {
-              event.target.unMute();
-              event.target.setVolume(volume[0]);
-              event.target.playVideo();
-              setPlayer(event.target);
-              setIsPlaying(true);
-              setLoadingPlayer(false);
-            },
-            onStateChange: (event: any) => {
-              if (event.data === window.YT.PlayerState.PLAYING) setIsPlaying(true);
-              else if (event.data === window.YT.PlayerState.PAUSED) setIsPlaying(false);
-              else if (event.data === window.YT.PlayerState.ENDED) playNext();
-            },
-            onError: () => {
-              toast({ variant: "destructive", title: "Erro ao reproduzir" });
-              setLoadingPlayer(false);
-            },
-          },
-        });
-      }
-
-      fetchLyrics(track);
-    } catch {
-      setLoadingPlayer(false);
-    }
+  const handleSearch = () => {
+    void doSearch(query);
   };
-
-  const fetchLyrics = async (track: SearchResult) => {
-    setLoadingLyrics(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("search-lyrics", {
-        body: { title: track.title, artist: track.artist },
-      });
-      if (error) throw error;
-      if (data?.lyrics) setLyrics(data.lyrics);
-    } catch {
-      setLyrics("Letra não disponível.");
-    } finally {
-      setLoadingLyrics(false);
-    }
-  };
-
-  const handlePlayPause = () => {
-    if (!player) return;
-    if (isPlaying) player.pauseVideo();
-    else player.playVideo();
-  };
-
-  const playNext = () => {
-    if (!currentTrack || !results.length) return;
-    const idx = results.findIndex((r) => r.videoId === currentTrack.videoId);
-    if (idx < results.length - 1) playTrack(results[idx + 1]);
-  };
-
-  const playPrev = () => {
-    if (!currentTrack || !results.length) return;
-    const idx = results.findIndex((r) => r.videoId === currentTrack.videoId);
-    if (idx > 0) playTrack(results[idx - 1]);
-  };
-
-  useEffect(() => {
-    if (player) player.setVolume(volume[0]);
-  }, [volume, player]);
 
   const bottomPadding = currentTrack ? "pb-40" : "pb-20";
 
   return (
     <div className={`min-h-screen bg-background ${bottomPadding}`}>
-      {/* Lyrics Full Screen Overlay */}
-      {showLyrics && currentTrack && (
-        <div className="fixed inset-0 z-[60] bg-background flex flex-col">
-          <div className="flex items-center justify-between p-4 border-b border-border">
-            <button onClick={() => setShowLyrics(false)}>
-              <ChevronDown className="w-6 h-6 text-foreground" />
-            </button>
-            <div className="text-center flex-1 mx-4">
-              <p className="font-bold text-foreground text-sm truncate">{currentTrack.title}</p>
-              <p className="text-xs text-muted-foreground truncate">{currentTrack.artist}</p>
-            </div>
-            <Mic2 className="w-5 h-5 text-primary" />
-          </div>
-          <div className="flex-1 overflow-y-auto p-6">
-            {loadingLyrics ? (
-              <div className="flex flex-col items-center justify-center h-full">
-                <Loader2 className="w-8 h-8 text-primary animate-spin" />
-                <p className="text-muted-foreground text-sm mt-3">Buscando letra...</p>
-              </div>
-            ) : (
-              <pre className="whitespace-pre-wrap font-sans text-lg text-foreground/90 leading-8 text-center">
-                {lyrics || "Letra não disponível."}
-              </pre>
-            )}
-          </div>
-          {/* Mini controls in lyrics view */}
-          <div className="p-4 border-t border-border flex items-center justify-center gap-6">
-            <button onClick={playPrev}><SkipBack className="w-5 h-5 text-foreground" /></button>
-            <button
-              onClick={handlePlayPause}
-              className="w-14 h-14 rounded-full bg-primary flex items-center justify-center"
-            >
-              {isPlaying ? <Pause className="w-6 h-6 text-primary-foreground" /> : <Play className="w-6 h-6 text-primary-foreground ml-0.5" />}
-            </button>
-            <button onClick={playNext}><SkipForward className="w-5 h-5 text-foreground" /></button>
-          </div>
-        </div>
-      )}
-
-      {/* Search Header */}
       <div className="sticky top-0 z-40 bg-background/95 backdrop-blur-md px-4 pt-4 pb-3">
         <div className="flex items-center gap-3">
           <button onClick={() => navigate(-1)}>
@@ -281,21 +127,30 @@ const Search = () => {
 
         {results.length > 0 && (
           <div className="space-y-1 mt-2">
-            {results.map((result) => {
-              const isActive = currentTrack?.videoId === result.videoId;
+            {results.map((result, index) => {
+              const isActive = isSameTrack(currentTrack, result);
+
               return (
                 <button
                   key={result.videoId}
-                  onClick={() => playTrack(result)}
+                  onClick={() => void playTrack(result, results, index)}
                   className={`w-full flex items-center gap-3 p-2 rounded-md transition-colors ${
                     isActive ? "bg-card" : "hover:bg-card/50 active:bg-card"
                   }`}
                 >
-                  <img
-                    src={result.thumbnail}
-                    alt=""
-                    className="w-12 h-12 rounded object-cover flex-shrink-0"
-                  />
+                  {result.thumbnail ? (
+                    <img
+                      src={result.thumbnail}
+                      alt={`Capa de ${result.title}`}
+                      className="w-12 h-12 rounded object-cover flex-shrink-0"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded bg-muted text-muted-foreground">
+                      <SearchIcon className="h-4 w-4" />
+                    </div>
+                  )}
+
                   <div className="flex-1 min-w-0 text-left">
                     <p className={`text-sm font-medium truncate ${isActive ? "text-primary" : "text-foreground"}`}>
                       {result.title}
@@ -304,7 +159,11 @@ const Search = () => {
                       {result.artist}
                     </p>
                   </div>
-                  {isActive && isPlaying && (
+                  {isActive && loadingPlayer && (
+                    <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                  )}
+
+                  {isActive && isPlaying && !loadingPlayer && (
                     <div className="flex gap-0.5 items-end h-4">
                       <div className="w-0.5 bg-primary rounded-full animate-pulse" style={{ height: '60%' }} />
                       <div className="w-0.5 bg-primary rounded-full animate-pulse" style={{ height: '100%', animationDelay: '0.1s' }} />
@@ -317,60 +176,6 @@ const Search = () => {
           </div>
         )}
       </div>
-
-      {/* Hidden YouTube Player */}
-      <div ref={playerRef} style={{ display: "none" }} />
-
-      {/* Now Playing Bar */}
-      {currentTrack && (
-        <div className="fixed bottom-[52px] left-0 right-0 z-50">
-          <div className="mx-2 bg-card rounded-lg shadow-card overflow-hidden">
-            <div className="flex items-center gap-2 p-2">
-              <button onClick={() => setShowLyrics(true)} className="flex items-center gap-3 flex-1 min-w-0">
-                <img
-                  src={currentTrack.thumbnail}
-                  alt=""
-                  className="w-12 h-12 rounded object-cover flex-shrink-0"
-                />
-                <div className="flex-1 min-w-0 text-left">
-                  <p className="text-sm font-semibold text-foreground truncate">
-                    {currentTrack.title}
-                  </p>
-                  <p className="text-xs text-muted-foreground truncate">
-                    {currentTrack.artist}
-                  </p>
-                </div>
-              </button>
-              <div className="flex items-center gap-0.5 flex-shrink-0">
-                <button
-                  onClick={(e) => { e.stopPropagation(); setShowLyrics(true); }}
-                  className="p-1.5"
-                >
-                  <Mic2 className="w-5 h-5 text-primary" />
-                </button>
-                <button onClick={playPrev} className="p-1.5">
-                  <SkipBack className="w-5 h-5 text-foreground" />
-                </button>
-                <button
-                  onClick={handlePlayPause}
-                  className="p-1.5"
-                >
-                  {loadingPlayer ? (
-                    <Loader2 className="w-5 h-5 text-foreground animate-spin" />
-                  ) : isPlaying ? (
-                    <Pause className="w-5 h-5 text-foreground" />
-                  ) : (
-                    <Play className="w-5 h-5 text-foreground ml-0.5" />
-                  )}
-                </button>
-                <button onClick={playNext} className="p-1.5">
-                  <SkipForward className="w-5 h-5 text-foreground" />
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       <BottomNav />
     </div>

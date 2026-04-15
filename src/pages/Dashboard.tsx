@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePlayer } from "@/contexts/PlayerContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Music, Trash2, Play, Pause, SkipForward, SkipBack, Loader2, Mic2, ChevronDown } from "lucide-react";
+import { Loader2, Music, Play, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { BottomNav } from "@/components/BottomNav";
+import type { PlayableTrack } from "@/types/player";
 
 interface Playlist {
   id: string;
@@ -16,26 +18,26 @@ interface Playlist {
   created_at: string;
 }
 
-declare global {
-  interface Window {
-    YT: any;
-    onYouTubeIframeAPIReady: () => void;
-  }
-}
+const toPlayableTracks = (tracks: any[] = []): PlayableTrack[] =>
+  tracks.map((track) => ({
+    title: track.title || "Faixa sem nome",
+    artist: track.artist || "Artista desconhecido",
+    searchQuery: track.searchQuery,
+    videoId: track.videoId,
+    thumbnail: track.thumbnail,
+  }));
+
+const isSameTrack = (current: PlayableTrack | null, candidate: PlayableTrack) => {
+  if (!current) return false;
+  if (current.videoId && candidate.videoId) return current.videoId === candidate.videoId;
+  return current.title === candidate.title && current.artist === candidate.artist;
+};
 
 const Dashboard = () => {
   const { user, signOut, loading: authLoading } = useAuth();
+  const { currentTrack, replaceQueue } = usePlayer();
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedPlaylist, setSelectedPlaylist] = useState<Playlist | null>(null);
-  const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [loadingPlayer, setLoadingPlayer] = useState(false);
-  const [player, setPlayer] = useState<any>(null);
-  const [lyrics, setLyrics] = useState<string | null>(null);
-  const [loadingLyrics, setLoadingLyrics] = useState(false);
-  const [showLyrics, setShowLyrics] = useState(false);
-  const playerDivRef = useState<HTMLDivElement | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -67,7 +69,6 @@ const Dashboard = () => {
       const { error } = await supabase.from("playlists").delete().eq("id", id);
       if (error) throw error;
       setPlaylists(playlists.filter((p) => p.id !== id));
-      if (selectedPlaylist?.id === id) setSelectedPlaylist(null);
       toast({ title: "Playlist excluída" });
     } catch {
       toast({ variant: "destructive", title: "Erro ao excluir" });
@@ -82,11 +83,10 @@ const Dashboard = () => {
     );
   }
 
-  const currentTrack = selectedPlaylist?.tracks?.[currentTrackIndex];
+  const bottomPadding = currentTrack ? "pb-40" : "pb-20";
 
   return (
-    <div className="min-h-screen bg-background pb-20">
-      {/* Header */}
+    <div className={`min-h-screen bg-background ${bottomPadding}`}>
       <div className="sticky top-0 z-40 bg-background/90 backdrop-blur-md px-4 pt-4 pb-3">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-extrabold text-foreground">Biblioteca</h1>
@@ -127,33 +127,32 @@ const Dashboard = () => {
                 </button>
               </div>
 
-              {/* Tracks */}
               <div className="space-y-1">
                 {playlist.tracks?.map((track: any, idx: number) => (
-                  <button
-                    key={idx}
-                    onClick={() => {
-                      setSelectedPlaylist(playlist);
-                      setCurrentTrackIndex(idx);
-                    }}
-                    className={`w-full flex items-center gap-3 p-2 rounded-md text-left transition-colors ${
-                      selectedPlaylist?.id === playlist.id && currentTrackIndex === idx
-                        ? "bg-primary/10"
-                        : "hover:bg-muted/50"
-                    }`}
-                  >
-                    <span className="text-xs text-muted-foreground w-5 text-right">{idx + 1}</span>
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-sm truncate ${
-                        selectedPlaylist?.id === playlist.id && currentTrackIndex === idx
-                          ? "text-primary font-medium"
-                          : "text-foreground"
-                      }`}>
-                        {track.title}
-                      </p>
-                      <p className="text-xs text-muted-foreground truncate">{track.artist}</p>
-                    </div>
-                  </button>
+                  (() => {
+                    const playableTrack = toPlayableTracks([track])[0];
+                    const active = isSameTrack(currentTrack, playableTrack);
+
+                    return (
+                      <button
+                        key={`${playlist.id}-${idx}`}
+                        onClick={() => void replaceQueue(toPlayableTracks(playlist.tracks), idx)}
+                        className={`w-full flex items-center gap-3 p-2 rounded-md text-left transition-colors ${
+                          active ? "bg-primary/10" : "hover:bg-muted/50"
+                        }`}
+                      >
+                        <span className="text-xs text-muted-foreground w-5 text-right">{idx + 1}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-sm truncate ${active ? "text-primary font-medium" : "text-foreground"}`}>
+                            {track.title}
+                          </p>
+                          <p className="text-xs text-muted-foreground truncate">{track.artist}</p>
+                        </div>
+
+                        {active && <Play className="h-4 w-4 text-primary" fill="currentColor" />}
+                      </button>
+                    );
+                  })()
                 ))}
               </div>
 
