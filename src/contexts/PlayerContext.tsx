@@ -254,11 +254,20 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     let disposed = false;
 
+    // Create container outside React's tree to avoid DOM conflicts
+    const container = document.createElement("div");
+    container.style.width = "0";
+    container.style.height = "0";
+    container.style.overflow = "hidden";
+    container.style.position = "absolute";
+    container.setAttribute("aria-hidden", "true");
+    document.body.appendChild(container);
+
     void loadYouTubeApi()
       .then(() => {
-        if (disposed || !playerContainerRef.current || playerRef.current) return;
+        if (disposed) return;
 
-        const instance = new window.YT.Player(playerContainerRef.current, {
+        const instance = new window.YT.Player(container, {
           height: "0",
           width: "0",
           playerVars: {
@@ -332,6 +341,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
       disposed = true;
       playerRef.current?.destroy?.();
       playerRef.current = null;
+      container.remove();
     };
   }, [playNext, toast]);
 
