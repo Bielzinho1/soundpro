@@ -15,7 +15,7 @@ import type { PlayableTrack } from "@/types/player";
 declare global {
   interface Window {
     YT: any;
-    onYouTubeIframeAPIReady?: () => void;
+    onYouTubeIframeAPIReady: (() => void) | undefined;
   }
 }
 
