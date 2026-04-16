@@ -96,7 +96,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
   const [volume, setVolume] = useState([70]);
   const [playerReady, setPlayerReady] = useState(false);
 
-  const playerContainerRef = useRef<HTMLDivElement>(null);
+  
   const playerRef = useRef<any>(null);
   const pendingTrackRef = useRef<PlayableTrack | null>(null);
   const queueRef = useRef<PlayableTrack[]>([]);
@@ -435,7 +435,6 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
   return (
     <PlayerContext.Provider value={value}>
       {children}
-      <div ref={playerContainerRef} className="h-0 w-0 overflow-hidden" aria-hidden="true" />
     </PlayerContext.Provider>
   );
 };
