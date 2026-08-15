@@ -14,33 +14,72 @@ export type Database = {
   }
   public: {
     Tables: {
+      game_scores: {
+        Row: {
+          created_at: string
+          id: string
+          score: number
+          track_artist: string
+          track_title: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          score?: number
+          track_artist?: string
+          track_title?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          score?: number
+          track_artist?: string
+          track_title?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       playlists: {
         Row: {
+          cover_url: string | null
           created_at: string | null
           description: string
           id: string
+          is_public: boolean
           mood: string
+          offline_enabled: boolean
           prompt: string
+          share_token: string
           title: string
           tracks: Json
           user_id: string
         }
         Insert: {
+          cover_url?: string | null
           created_at?: string | null
-          description: string
+          description?: string
           id?: string
-          mood: string
-          prompt: string
+          is_public?: boolean
+          mood?: string
+          offline_enabled?: boolean
+          prompt?: string
+          share_token?: string
           title: string
           tracks?: Json
           user_id: string
         }
         Update: {
+          cover_url?: string | null
           created_at?: string | null
           description?: string
           id?: string
+          is_public?: boolean
           mood?: string
+          offline_enabled?: boolean
           prompt?: string
+          share_token?: string
           title?: string
           tracks?: Json
           user_id?: string
@@ -50,19 +89,28 @@ export type Database = {
       profiles: {
         Row: {
           created_at: string | null
+          display_name: string | null
           id: string
+          instagram: string | null
+          is_premium: boolean
           user_id: string
           username: string
         }
         Insert: {
           created_at?: string | null
+          display_name?: string | null
           id?: string
+          instagram?: string | null
+          is_premium?: boolean
           user_id: string
           username: string
         }
         Update: {
           created_at?: string | null
+          display_name?: string | null
           id?: string
+          instagram?: string | null
+          is_premium?: boolean
           user_id?: string
           username?: string
         }
