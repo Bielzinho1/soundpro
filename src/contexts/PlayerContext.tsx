@@ -26,7 +26,10 @@ interface PlayerContextType {
   isPlaying: boolean;
   loadingPlayer: boolean;
   lyrics: string | null;
+  translatedLyrics: string | null;
   loadingLyrics: boolean;
+  loadingTranslation: boolean;
+  showTranslation: boolean;
   showLyrics: boolean;
   volume: number[];
   hasNext: boolean;
@@ -37,6 +40,7 @@ interface PlayerContextType {
   playNext: () => Promise<void>;
   playPrevious: () => Promise<void>;
   setShowLyrics: (show: boolean) => void;
+  toggleTranslation: () => void;
   setVolume: (value: number[]) => void;
 }
 
@@ -63,21 +67,28 @@ const loadYouTubeApi = () => {
   if (youtubeApiPromise) return youtubeApiPromise;
 
   youtubeApiPromise = new Promise<void>((resolve) => {
+    const finish = () => resolve();
+
     if (document.querySelector('script[src="https://www.youtube.com/iframe_api"]')) {
       const checkPlayer = window.setInterval(() => {
         if (window.YT?.Player) {
           window.clearInterval(checkPlayer);
-          resolve();
+          finish();
         }
-      }, 100);
+      }, 50);
       return;
     }
+
+    const previousCallback = window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady = () => {
+      previousCallback?.();
+      finish();
+    };
 
     const script = document.createElement("script");
     script.src = "https://www.youtube.com/iframe_api";
     script.async = true;
     document.body.appendChild(script);
-    window.onYouTubeIframeAPIReady = () => resolve();
   });
 
   return youtubeApiPromise;
@@ -91,21 +102,26 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [loadingPlayer, setLoadingPlayer] = useState(false);
   const [lyrics, setLyrics] = useState<string | null>(null);
+  const [translatedLyrics, setTranslatedLyrics] = useState<string | null>(null);
   const [loadingLyrics, setLoadingLyrics] = useState(false);
+  const [loadingTranslation, setLoadingTranslation] = useState(false);
+  const [showTranslation, setShowTranslation] = useState(false);
   const [showLyrics, setShowLyrics] = useState(false);
   const [volume, setVolume] = useState([70]);
-  const [playerReady, setPlayerReady] = useState(false);
 
-  
   const playerRef = useRef<any>(null);
+  const playerReadyRef = useRef(false);
   const pendingTrackRef = useRef<PlayableTrack | null>(null);
   const queueRef = useRef<PlayableTrack[]>([]);
   const currentIndexRef = useRef(-1);
   const volumeRef = useRef(70);
   const playRequestIdRef = useRef(0);
   const lyricsRequestIdRef = useRef(0);
+  const translationRequestIdRef = useRef(0);
   const resolvedTrackCacheRef = useRef(new Map<string, PlayableTrack>());
   const lyricsCacheRef = useRef(new Map<string, string>());
+  const translationCacheRef = useRef(new Map<string, string>());
+  const playNextRef = useRef<() => void>(() => {});
 
   useEffect(() => {
     queueRef.current = queue;
@@ -117,18 +133,16 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     volumeRef.current = volume[0];
-    if (playerRef.current && playerReady) {
+    if (playerRef.current && playerReadyRef.current) {
       playerRef.current.setVolume?.(volume[0]);
     }
-  }, [playerReady, volume]);
+  }, [volume]);
 
   const resolveTrack = useCallback(async (track: PlayableTrack) => {
     const cacheKey = getTrackCacheKey(track);
     const cachedTrack = resolvedTrackCacheRef.current.get(cacheKey);
 
-    if (cachedTrack) {
-      return { ...track, ...cachedTrack };
-    }
+    if (cachedTrack) return { ...track, ...cachedTrack };
 
     if (track.videoId) {
       resolvedTrackCacheRef.current.set(cacheKey, track);
@@ -137,15 +151,13 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
 
     const query = track.searchQuery?.trim() || `${track.artist} ${track.title}`.trim();
     const { data, error } = await supabase.functions.invoke("search-youtube-multiple", {
-      body: { query, maxResults: 5 },
+      body: { query, maxResults: 3 },
     });
 
     if (error) throw error;
 
     const firstMatch = Array.isArray(data?.results) ? data.results[0] : null;
-    if (!firstMatch?.videoId) {
-      throw new Error("Música não encontrada");
-    }
+    if (!firstMatch?.videoId) throw new Error("Música não encontrada");
 
     const resolvedTrack: PlayableTrack = {
       ...track,
@@ -159,19 +171,26 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     return resolvedTrack;
   }, []);
 
-  const loadResolvedTrack = useCallback(
-    (track: PlayableTrack) => {
-      pendingTrackRef.current = track;
-
-      if (!playerRef.current || !playerReady || !track.videoId) return;
-
-      playerRef.current.loadVideoById(track.videoId);
-      playerRef.current.unMute?.();
-      playerRef.current.setVolume?.(volumeRef.current);
-      playerRef.current.playVideo();
+  // Pré-carrega o videoId da próxima faixa para trocar sem espera
+  const prefetchNext = useCallback(
+    (index: number) => {
+      const nextTrack = queueRef.current[index + 1];
+      if (!nextTrack || nextTrack.videoId) return;
+      void resolveTrack(nextTrack).catch(() => undefined);
     },
-    [playerReady]
+    [resolveTrack]
   );
+
+  const loadResolvedTrack = useCallback((track: PlayableTrack) => {
+    pendingTrackRef.current = track;
+
+    if (!playerRef.current || !playerReadyRef.current || !track.videoId) return;
+
+    playerRef.current.loadVideoById({ videoId: track.videoId, startSeconds: 0 });
+    playerRef.current.unMute?.();
+    playerRef.current.setVolume?.(volumeRef.current);
+    playerRef.current.playVideo?.();
+  }, []);
 
   const playTrack = useCallback(
     async (track: PlayableTrack, nextQueue: PlayableTrack[] = [track], startIndex = 0) => {
@@ -181,6 +200,10 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
       const requestId = ++playRequestIdRef.current;
 
       setLoadingPlayer(true);
+      // feedback imediato na UI, antes mesmo de resolver o vídeo
+      setQueue(nextQueue);
+      setCurrentIndex(safeIndex);
+      setCurrentTrack((previous) => ({ ...track, videoId: track.videoId ?? previous?.videoId }));
 
       try {
         const resolvedTrack = await resolveTrack(track);
@@ -191,12 +214,14 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
           index === safeIndex ? { ...item, ...resolvedTrack } : item
         );
 
+        queueRef.current = queueWithResolved;
         setQueue(queueWithResolved);
-        setCurrentIndex(safeIndex);
         setCurrentTrack(resolvedTrack);
         loadResolvedTrack(resolvedTrack);
+        prefetchNext(safeIndex);
       } catch (error) {
         console.error("Erro ao reproduzir música:", error);
+        if (requestId !== playRequestIdRef.current) return;
         setLoadingPlayer(false);
         setIsPlaying(false);
         toast({
@@ -206,7 +231,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         });
       }
     },
-    [loadResolvedTrack, resolveTrack, toast]
+    [loadResolvedTrack, prefetchNext, resolveTrack, toast]
   );
 
   const replaceQueue = useCallback(
@@ -235,13 +260,28 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     const previousIndex = currentIndexRef.current - 1;
     const previousTrack = queueRef.current[previousIndex];
 
-    if (!previousTrack) return;
+    // Igual ao Spotify: volta ao início se já passou de 4s
+    const elapsed = playerRef.current?.getCurrentTime?.() ?? 0;
+    if (elapsed > 4 && playerReadyRef.current) {
+      playerRef.current.seekTo?.(0, true);
+      playerRef.current.playVideo?.();
+      return;
+    }
+
+    if (!previousTrack) {
+      playerRef.current?.seekTo?.(0, true);
+      return;
+    }
 
     await playTrack(previousTrack, queueRef.current, previousIndex);
   }, [playTrack]);
 
+  useEffect(() => {
+    playNextRef.current = () => void playNext();
+  }, [playNext]);
+
   const playPause = useCallback(() => {
-    if (!playerRef.current || !playerReady) return;
+    if (!playerRef.current || !playerReadyRef.current) return;
 
     if (isPlaying) {
       playerRef.current.pauseVideo();
@@ -249,12 +289,12 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     }
 
     playerRef.current.playVideo();
-  }, [isPlaying, playerReady]);
+  }, [isPlaying]);
 
+  // Player criado UMA única vez — evita reinicializações que atrasavam a troca de faixa
   useEffect(() => {
     let disposed = false;
 
-    // Create container outside React's tree to avoid DOM conflicts
     const container = document.createElement("div");
     container.style.width = "0";
     container.style.height = "0";
@@ -274,14 +314,15 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
             autoplay: 0,
             controls: 0,
             playsinline: 1,
+            origin: window.location.origin,
           },
           events: {
             onReady: (event: any) => {
               if (disposed) return;
 
               playerRef.current = event.target;
+              playerReadyRef.current = true;
               event.target.setVolume(volumeRef.current);
-              setPlayerReady(true);
 
               const pendingTrack = pendingTrackRef.current;
               if (pendingTrack?.videoId) {
@@ -310,18 +351,13 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
               if (event.data === window.YT.PlayerState.ENDED) {
                 setIsPlaying(false);
                 setLoadingPlayer(false);
-                void playNext();
+                playNextRef.current();
               }
             },
             onError: () => {
               setLoadingPlayer(false);
               setIsPlaying(false);
-              toast({
-                variant: "destructive",
-                title: "Erro ao reproduzir",
-                description: "Tentando a próxima faixa da fila.",
-              });
-              void playNext();
+              playNextRef.current();
             },
           },
         });
@@ -330,31 +366,48 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
       })
       .catch((error) => {
         console.error("Erro ao carregar player do YouTube:", error);
-        toast({
-          variant: "destructive",
-          title: "Erro no player",
-          description: "Não foi possível iniciar o player agora.",
-        });
       });
 
     return () => {
       disposed = true;
+      playerReadyRef.current = false;
       playerRef.current?.destroy?.();
       playerRef.current = null;
       container.remove();
     };
-  }, [playNext, toast]);
+  }, []);
+
+  // Controles de mídia do sistema (tela de bloqueio / fones)
+  useEffect(() => {
+    if (!("mediaSession" in navigator) || !currentTrack) return;
+
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: currentTrack.title,
+      artist: currentTrack.artist,
+      album: "SoundPro",
+      artwork: currentTrack.thumbnail
+        ? [{ src: currentTrack.thumbnail, sizes: "512x512", type: "image/png" }]
+        : [],
+    });
+
+    navigator.mediaSession.setActionHandler("play", () => playerRef.current?.playVideo?.());
+    navigator.mediaSession.setActionHandler("pause", () => playerRef.current?.pauseVideo?.());
+    navigator.mediaSession.setActionHandler("nexttrack", () => playNextRef.current());
+    navigator.mediaSession.setActionHandler("previoustrack", () => void playPrevious());
+  }, [currentTrack, playPrevious]);
 
   useEffect(() => {
     if (!currentTrack) {
       setLyrics(null);
+      setTranslatedLyrics(null);
       setLoadingLyrics(false);
       return;
     }
 
     const cacheKey = getLyricsCacheKey(currentTrack);
-    const cachedLyrics = lyricsCacheRef.current.get(cacheKey);
+    setTranslatedLyrics(translationCacheRef.current.get(cacheKey) ?? null);
 
+    const cachedLyrics = lyricsCacheRef.current.get(cacheKey);
     if (cachedLyrics) {
       setLyrics(cachedLyrics);
       setLoadingLyrics(false);
@@ -374,9 +427,8 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         if (requestId !== lyricsRequestIdRef.current) return;
         if (error) throw error;
 
-        const nextLyrics = typeof data?.lyrics === "string" && data.lyrics.trim()
-          ? data.lyrics
-          : "Letra não disponível.";
+        const nextLyrics =
+          typeof data?.lyrics === "string" && data.lyrics.trim() ? data.lyrics : "Letra não disponível.";
 
         lyricsCacheRef.current.set(cacheKey, nextLyrics);
         setLyrics(nextLyrics);
@@ -387,11 +439,60 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         setLyrics("Letra não disponível.");
       })
       .finally(() => {
-        if (requestId === lyricsRequestIdRef.current) {
-          setLoadingLyrics(false);
-        }
+        if (requestId === lyricsRequestIdRef.current) setLoadingLyrics(false);
       });
   }, [currentTrack]);
+
+  const toggleTranslation = useCallback(() => {
+    if (!currentTrack || !lyrics || lyrics === "Letra não disponível.") return;
+
+    if (showTranslation) {
+      setShowTranslation(false);
+      return;
+    }
+
+    setShowTranslation(true);
+
+    const cacheKey = getLyricsCacheKey(currentTrack);
+    const cached = translationCacheRef.current.get(cacheKey);
+    if (cached) {
+      setTranslatedLyrics(cached);
+      return;
+    }
+
+    const requestId = ++translationRequestIdRef.current;
+    setLoadingTranslation(true);
+
+    void supabase.functions
+      .invoke("search-lyrics", {
+        body: {
+          title: currentTrack.title,
+          artist: currentTrack.artist,
+          translate: true,
+          lyrics,
+        },
+      })
+      .then(({ data, error }) => {
+        if (requestId !== translationRequestIdRef.current) return;
+        if (error) throw error;
+
+        const translation =
+          typeof data?.translation === "string" && data.translation.trim()
+            ? data.translation
+            : "Tradução não disponível.";
+
+        translationCacheRef.current.set(cacheKey, translation);
+        setTranslatedLyrics(translation);
+      })
+      .catch((error) => {
+        console.error("Erro ao traduzir letra:", error);
+        if (requestId !== translationRequestIdRef.current) return;
+        setTranslatedLyrics("Tradução não disponível.");
+      })
+      .finally(() => {
+        if (requestId === translationRequestIdRef.current) setLoadingTranslation(false);
+      });
+  }, [currentTrack, lyrics, showTranslation]);
 
   const value = useMemo<PlayerContextType>(
     () => ({
@@ -401,7 +502,10 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
       isPlaying,
       loadingPlayer,
       lyrics,
+      translatedLyrics,
       loadingLyrics,
+      loadingTranslation,
+      showTranslation,
       showLyrics,
       volume,
       hasNext: currentIndex >= 0 && currentIndex < queue.length - 1,
@@ -412,6 +516,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
       playNext,
       playPrevious,
       setShowLyrics,
+      toggleTranslation,
       setVolume,
     }),
     [
@@ -420,6 +525,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
       isPlaying,
       loadingLyrics,
       loadingPlayer,
+      loadingTranslation,
       lyrics,
       playNext,
       playPause,
@@ -428,15 +534,14 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
       queue,
       replaceQueue,
       showLyrics,
+      showTranslation,
+      toggleTranslation,
+      translatedLyrics,
       volume,
     ]
   );
 
-  return (
-    <PlayerContext.Provider value={value}>
-      {children}
-    </PlayerContext.Provider>
-  );
+  return <PlayerContext.Provider value={value}>{children}</PlayerContext.Provider>;
 };
 
 export const usePlayer = () => {
