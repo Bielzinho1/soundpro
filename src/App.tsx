@@ -16,6 +16,8 @@ import Profile from "./pages/Profile";
 import Game from "./pages/Game";
 import NotFound from "./pages/NotFound";
 import Install from "./pages/Install";
+import Premium from "./pages/Premium";
+import AdminPix from "./pages/AdminPix";
 
 const queryClient = new QueryClient();
 
@@ -37,6 +39,8 @@ const App = () => (
               <Route path="/profile" element={<Profile />} />
               <Route path="/game" element={<Game />} />
               <Route path="/install" element={<Install />} />
+              <Route path="/premium" element={<Premium />} />
+              <Route path="/admin/pix" element={<AdminPix />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
             <GlobalPlayer />
