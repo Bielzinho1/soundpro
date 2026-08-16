@@ -41,7 +41,15 @@ const cleanupArtist = (artist = '') =>
     .replace(/\s+/g, ' ')
     .trim();
 
-const stripTimecodes = (lyrics = '') => lyrics.replace(/^\[[0-9:.]+\]\s*/gm, '').trim();
+const stripTimecodes = (lyrics = '') =>
+  lyrics
+    .replace(/^\[[0-9:.]+\]\s*/gm, '')
+    .replace(/^\[(offset|ar|ti|al|by|length|re|ve):[^\]]*\]\s*$/gim, '')
+    .replace(/\r/g, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+
+const cleanLyrics = (lyrics: string) => stripTimecodes(lyrics);
 
 const scoreLyricsMatch = (result: any, title: string, artist: string) => {
   const resultTitle = normalizeText(result?.trackName || '');
@@ -62,7 +70,7 @@ const pickLyrics = (results: any[], title: string, artist: string) => {
   if (!Array.isArray(results) || results.length === 0) return null;
   const best = [...results].sort((a, b) => scoreLyricsMatch(b, title, artist) - scoreLyricsMatch(a, title, artist))[0];
   if (!best) return null;
-  const plain = typeof best.plainLyrics === 'string' ? best.plainLyrics.trim() : '';
+  const plain = typeof best.plainLyrics === 'string' ? cleanLyrics(best.plainLyrics) : '';
   const synced = typeof best.syncedLyrics === 'string' ? stripTimecodes(best.syncedLyrics) : '';
   return plain || synced || null;
 };
