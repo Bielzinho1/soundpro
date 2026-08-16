@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { usePlayer } from "@/contexts/PlayerContext";
 import type { PlayableTrack } from "@/types/player";
 import { BottomNav } from "@/components/BottomNav";
+import { AddToPlaylistButton } from "@/components/AddToPlaylistButton";
 import { useToast } from "@/hooks/use-toast";
 import {
   Search as SearchIcon,
@@ -52,7 +53,7 @@ const Search = () => {
 
     try {
       const { data, error } = await supabase.functions.invoke("search-youtube-multiple", {
-        body: { query: trimmedQuery, maxResults: 15 },
+        body: { query: trimmedQuery, maxResults: 25 },
       });
 
       if (error) throw error;
@@ -131,13 +132,16 @@ const Search = () => {
               const isActive = isSameTrack(currentTrack, result);
 
               return (
-                <button
+                <div
                   key={result.videoId}
-                  onClick={() => void playTrack(result, results, index)}
                   className={`w-full flex items-center gap-3 p-2 rounded-md transition-colors ${
                     isActive ? "bg-card" : "hover:bg-card/50 active:bg-card"
                   }`}
                 >
+                  <button
+                    onClick={() => void playTrack(result, results, index)}
+                    className="flex flex-1 min-w-0 items-center gap-3 text-left"
+                  >
                   {result.thumbnail ? (
                     <img
                       src={result.thumbnail}
@@ -170,7 +174,10 @@ const Search = () => {
                       <div className="w-0.5 bg-primary rounded-full animate-pulse" style={{ height: '40%', animationDelay: '0.2s' }} />
                     </div>
                   )}
-                </button>
+                  </button>
+
+                  <AddToPlaylistButton track={result} />
+                </div>
               );
             })}
           </div>
