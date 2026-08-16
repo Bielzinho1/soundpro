@@ -127,8 +127,17 @@ const Profile = () => {
             Playlists salvas para ouvir offline, sem limites de criação com IA.
           </p>
           {!isPremium && (
-            <Button variant="outline" className="w-full" onClick={() => window.open(WHATSAPP_LINK, "_blank")}>
-              Assinar pelo WhatsApp
+            <Button className="w-full" onClick={() => navigate("/premium")}>
+              Ser Premium · R$ 15,00/mês
+            </Button>
+          )}
+          {!isPremium && (
+            <Button
+              variant="ghost"
+              className="w-full text-xs text-muted-foreground"
+              onClick={() => window.open(WHATSAPP_LINK, "_blank")}
+            >
+              Falar no WhatsApp
             </Button>
           )}
         </div>
