@@ -5,7 +5,8 @@ import { usePlayer } from "@/contexts/PlayerContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { Loader2, Music, Play, Share2, Trash2, WifiOff } from "lucide-react";
+import { Loader2, Music, Play, Plus, Share2, Trash2, WifiOff, X } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { BottomNav } from "@/components/BottomNav";
 import type { PlayableTrack } from "@/types/player";
@@ -39,6 +40,8 @@ const Playlists = () => {
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [loading, setLoading] = useState(true);
   const [isPremium, setIsPremium] = useState(false);
+  const [newTitle, setNewTitle] = useState("");
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) navigate("/auth");
@@ -65,6 +68,42 @@ const Playlists = () => {
     setPlaylists((previous) => previous.map((item) => (item.id === id ? { ...item, ...patch } : item)));
     const { error } = await supabase.from("playlists").update(patch as any).eq("id", id);
     if (error) toast({ variant: "destructive", title: "Erro ao salvar", description: error.message });
+  };
+
+  const createPlaylist = async () => {
+    if (!user || !newTitle.trim()) return;
+    setCreating(true);
+    const { data, error } = await supabase
+      .from("playlists")
+      .insert({
+        user_id: user.id,
+        title: newTitle.trim(),
+        description: "Playlist personalizada",
+        mood: "",
+        prompt: "",
+        tracks: [] as any,
+      })
+      .select("*")
+      .single();
+    setCreating(false);
+
+    if (error) {
+      toast({ variant: "destructive", title: "Erro ao criar", description: error.message });
+      return;
+    }
+
+    setPlaylists((previous) => [data as unknown as Playlist, ...previous]);
+    setNewTitle("");
+    toast({ title: "Playlist criada!", description: "Adicione músicas pela busca." });
+  };
+
+  const removeTrack = async (playlist: Playlist, index: number) => {
+    const nextTracks = (playlist.tracks ?? []).filter((_, i) => i !== index);
+    setPlaylists((previous) =>
+      previous.map((item) => (item.id === playlist.id ? { ...item, tracks: nextTracks } : item))
+    );
+    const { error } = await supabase.from("playlists").update({ tracks: nextTracks as any }).eq("id", playlist.id);
+    if (error) toast({ variant: "destructive", title: "Erro ao remover", description: error.message });
   };
 
   const share = async (playlist: Playlist) => {
@@ -109,6 +148,18 @@ const Playlists = () => {
       </header>
 
       <div className="space-y-4 p-4">
+        <div className="flex gap-2">
+          <Input
+            placeholder="Nome da nova playlist"
+            value={newTitle}
+            onChange={(e) => setNewTitle(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && void createPlaylist()}
+          />
+          <Button onClick={() => void createPlaylist()} disabled={!newTitle.trim() || creating}>
+            {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+          </Button>
+        </div>
+
         {playlists.length === 0 ? (
           <div className="py-16 text-center">
             <Music className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
@@ -135,19 +186,36 @@ const Playlists = () => {
               </div>
 
               <div className="space-y-1">
+                {(playlist.tracks?.length ?? 0) === 0 && (
+                  <p className="py-3 text-center text-xs text-muted-foreground">
+                    Playlist vazia — adicione músicas pelo "+" na busca.
+                  </p>
+                )}
+
                 {playlist.tracks?.map((track: any, index: number) => (
-                  <button
+                  <div
                     key={`${playlist.id}-${index}`}
-                    onClick={() => void replaceQueue(toPlayableTracks(playlist.tracks), index)}
-                    className="flex w-full items-center gap-3 rounded-md p-2 text-left transition-colors hover:bg-muted/50"
+                    className="flex w-full items-center gap-3 rounded-md p-2 transition-colors hover:bg-muted/50"
                   >
-                    <span className="w-5 text-right text-xs text-muted-foreground">{index + 1}</span>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm text-foreground">{track.title}</p>
-                      <p className="truncate text-xs text-muted-foreground">{track.artist}</p>
-                    </div>
-                    <Play className="h-4 w-4 text-primary" />
-                  </button>
+                    <button
+                      onClick={() => void replaceQueue(toPlayableTracks(playlist.tracks), index)}
+                      className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                    >
+                      <span className="w-5 text-right text-xs text-muted-foreground">{index + 1}</span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm text-foreground">{track.title}</p>
+                        <p className="truncate text-xs text-muted-foreground">{track.artist}</p>
+                      </div>
+                      <Play className="h-4 w-4 text-primary" />
+                    </button>
+                    <button
+                      onClick={() => void removeTrack(playlist, index)}
+                      aria-label="Remover música"
+                      className="p-1 text-muted-foreground transition-colors hover:text-destructive"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
                 ))}
               </div>
 
