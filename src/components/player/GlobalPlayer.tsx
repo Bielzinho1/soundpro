@@ -1,4 +1,4 @@
-import { ChevronDown, Loader2, Mic2, Music2, Pause, Play, SkipBack, SkipForward } from "lucide-react";
+import { ChevronDown, Languages, Loader2, Mic2, Music2, Pause, Play, SkipBack, SkipForward } from "lucide-react";
 import { usePlayer } from "@/contexts/PlayerContext";
 
 export const GlobalPlayer = () => {
@@ -7,7 +7,11 @@ export const GlobalPlayer = () => {
     isPlaying,
     loadingPlayer,
     lyrics,
+    translatedLyrics,
     loadingLyrics,
+    loadingTranslation,
+    showTranslation,
+    toggleTranslation,
     showLyrics,
     hasNext,
     hasPrevious,
@@ -33,20 +37,28 @@ export const GlobalPlayer = () => {
               <p className="truncate text-xs text-muted-foreground">{currentTrack.artist}</p>
             </div>
 
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-card text-primary">
-              <Mic2 className="h-5 w-5" />
-            </div>
+            <button
+              onClick={toggleTranslation}
+              aria-label="Traduzir letra"
+              className={`flex h-10 w-10 items-center justify-center rounded-full ${
+                showTranslation ? "bg-primary text-primary-foreground" : "bg-card text-primary"
+              }`}
+            >
+              <Languages className="h-5 w-5" />
+            </button>
           </div>
 
           <div className="flex-1 overflow-y-auto px-6 py-8">
-            {loadingLyrics ? (
+            {loadingLyrics || (showTranslation && loadingTranslation) ? (
               <div className="flex h-full flex-col items-center justify-center">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                <p className="mt-3 text-sm text-muted-foreground">Buscando letra certa...</p>
+                <p className="mt-3 text-sm text-muted-foreground">
+                  {showTranslation ? "Traduzindo para português..." : "Buscando letra certa..."}
+                </p>
               </div>
             ) : (
               <pre className="whitespace-pre-wrap text-center font-sans text-base leading-8 text-foreground/90 sm:text-lg">
-                {lyrics || "Letra não disponível."}
+                {(showTranslation ? translatedLyrics : lyrics) || "Letra não disponível."}
               </pre>
             )}
           </div>
