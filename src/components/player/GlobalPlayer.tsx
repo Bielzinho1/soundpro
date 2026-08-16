@@ -1,4 +1,4 @@
-import { ChevronDown, Loader2, Mic2, Music2, Pause, Play, SkipBack, SkipForward } from "lucide-react";
+import { ChevronDown, Languages, Loader2, Mic2, Music2, Pause, Play, SkipBack, SkipForward } from "lucide-react";
 import { usePlayer } from "@/contexts/PlayerContext";
 
 export const GlobalPlayer = () => {
@@ -7,7 +7,11 @@ export const GlobalPlayer = () => {
     isPlaying,
     loadingPlayer,
     lyrics,
+    translatedLyrics,
     loadingLyrics,
+    loadingTranslation,
+    showTranslation,
+    toggleTranslation,
     showLyrics,
     hasNext,
     hasPrevious,
