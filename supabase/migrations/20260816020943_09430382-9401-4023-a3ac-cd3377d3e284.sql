@@ -1,0 +1,1 @@
+CREATE POLICY "Users can update their own playlists" ON public.playlists FOR UPDATE TO authenticated USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
