@@ -186,7 +186,12 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
 
     if (!playerRef.current || !playerReadyRef.current || !track.videoId) return;
 
-    playerRef.current.loadVideoById({ videoId: track.videoId, startSeconds: 0 });
+    playerRef.current.loadVideoById({
+      videoId: track.videoId,
+      startSeconds: 0,
+      suggestedQuality: "hd1080",
+    });
+    playerRef.current.setPlaybackQuality?.("hd1080");
     playerRef.current.unMute?.();
     playerRef.current.setVolume?.(volumeRef.current);
     playerRef.current.playVideo?.();
@@ -326,7 +331,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
 
               const pendingTrack = pendingTrackRef.current;
               if (pendingTrack?.videoId) {
-                event.target.loadVideoById(pendingTrack.videoId);
+                event.target.loadVideoById({ videoId: pendingTrack.videoId, suggestedQuality: "hd1080" });
                 event.target.playVideo();
               }
             },
@@ -337,6 +342,8 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
               }
 
               if (event.data === window.YT.PlayerState.PLAYING) {
+                // Força o stream de maior bitrate disponível (melhor qualidade de áudio)
+                playerRef.current?.setPlaybackQuality?.("hd1080");
                 setIsPlaying(true);
                 setLoadingPlayer(false);
                 return;
