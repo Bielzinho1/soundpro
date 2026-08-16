@@ -1,13 +1,12 @@
 import { useNavigate, useLocation } from "react-router-dom";
-import { Home, Search, Library, Crown } from "lucide-react";
-
-const WHATSAPP_LINK = "https://wa.me/5541992945393?text=Olá! Quero assinar o SoundPro Premium!";
+import { Home, Search, Library, Gamepad2, User } from "lucide-react";
 
 const navItems = [
   { icon: Home, label: "Início", path: "/" },
   { icon: Search, label: "Buscar", path: "/search" },
-  { icon: Library, label: "Biblioteca", path: "/dashboard" },
-  { icon: Crown, label: "Premium", path: "premium" },
+  { icon: Library, label: "Playlists", path: "/playlists" },
+  { icon: Gamepad2, label: "Jogo", path: "/game" },
+  { icon: User, label: "Perfil", path: "/profile" },
 ];
 
 export const BottomNav = () => {
@@ -15,31 +14,20 @@ export const BottomNav = () => {
   const location = useLocation();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-md border-t border-border safe-area-bottom">
-      <div className="flex items-center justify-around py-2 px-2 max-w-lg mx-auto">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-background/95 backdrop-blur-md safe-area-bottom">
+      <div className="mx-auto flex max-w-lg items-center justify-around px-2 py-2">
         {navItems.map((item) => {
-          const isActive = item.path === "premium" ? false : location.pathname === item.path;
-          const isPremium = item.path === "premium";
+          const isActive = location.pathname === item.path;
 
           return (
             <button
               key={item.label}
-              onClick={() => {
-                if (isPremium) {
-                  window.open(WHATSAPP_LINK, "_blank");
-                } else {
-                  navigate(item.path);
-                }
-              }}
-              className={`flex flex-col items-center gap-0.5 py-1 px-3 rounded-lg transition-colors ${
-                isActive
-                  ? "text-foreground"
-                  : isPremium
-                  ? "text-primary"
-                  : "text-muted-foreground"
+              onClick={() => navigate(item.path)}
+              className={`flex flex-col items-center gap-0.5 rounded-lg px-3 py-1 transition-colors ${
+                isActive ? "text-primary" : "text-muted-foreground"
               }`}
             >
-              <item.icon className={`w-6 h-6 ${isActive ? "text-foreground" : ""}`} />
+              <item.icon className="h-6 w-6" />
               <span className="text-[10px] font-medium">{item.label}</span>
             </button>
           );
