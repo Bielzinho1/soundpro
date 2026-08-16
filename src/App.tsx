@@ -10,6 +10,10 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Search from "./pages/Search";
+import Playlists from "./pages/Playlists";
+import SharedPlaylist from "./pages/SharedPlaylist";
+import Profile from "./pages/Profile";
+import Game from "./pages/Game";
 import NotFound from "./pages/NotFound";
 import Install from "./pages/Install";
 
@@ -28,6 +32,10 @@ const App = () => (
               <Route path="/auth" element={<Auth />} />
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/search" element={<Search />} />
+              <Route path="/playlists" element={<Playlists />} />
+              <Route path="/p/:token" element={<SharedPlaylist />} />
+              <Route path="/profile" element={<Profile />} />
+              <Route path="/game" element={<Game />} />
               <Route path="/install" element={<Install />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
