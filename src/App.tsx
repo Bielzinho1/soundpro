@@ -39,6 +39,8 @@ const App = () => (
               <Route path="/profile" element={<Profile />} />
               <Route path="/game" element={<Game />} />
               <Route path="/install" element={<Install />} />
+              <Route path="/premium" element={<Premium />} />
+              <Route path="/admin/pix" element={<AdminPix />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
             <GlobalPlayer />
